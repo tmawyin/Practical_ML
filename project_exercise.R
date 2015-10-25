@@ -119,5 +119,10 @@ pml_write_files = function(x){
 pml_write_files(final.prediction)
 
 # OPTIONAL
+# BOOSTING
+model.boosting <- train(classe~., method="gbm",data=training, verbose=FALSE)
+predict.boost <- predict(model.boosting, newdata = cross.val)
+confusionMatrix(predict.boost, cross.val$classe)
+
 # Using PCA
 
