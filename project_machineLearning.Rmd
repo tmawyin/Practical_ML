@@ -140,4 +140,49 @@ model.tree$finalModel
 fancyRpartPlot(model.tree$finalModel)
 ```
 
+The final tree is a bit complicated, but we can look at the statistics of the 
+model by looking at the cross-validation data set and checking the confusion 
+matrix which will indicate how off we are in the predictions
+
+```{r}
+#How do we do on the cross-validation set
+predict.cv <- predict(model.tree, newdata = cross.val)
+confusionMatrix(predict.cv, cross.val$classe)
+```
+
+The accuracy of the decision tree is approximately 80%. There is a large 
+error in the cross-validation set. This will imply a larger error in the 
+testing set. Since the accuracy can be improved, we will not apply this algorithm 
+on the testing set.
+
+### Random Forest
+Similar to the decision tree, we can apply a "stronger" algorithm such as random 
+forest to make predictions. Random forest work by combining the output of various 
+decision trees so we expect the results to be more accurate. The following code 
+will make predictions on the cross-validation data set and will output the 
+statistics of the model.
+
+```{r}
+model.forest <- train(classe ~ ., data = training, method = 'rf',
+                      trControl=trainControl(method="cv",number=5),
+                      preProcess=c("center", "scale"))
+
+predict.forest <- predict(model.forest, newdata = cross.val)
+confusionMatrix(predict.forest, cross.val$classe)
+```
+
+We can see that this model is almost 100% accurate. Althought we know that this 
+accuracy was achieved on the cross-validation set, we can expect the testing set 
+to have a larger error (less accuracy), but for the predictions of this kind this 
+is a great accuracy and we would expect to achieve good predictions on similar 
+data. It should also be noted that the gain in accuracy is offset by an increase 
+in computational speed as it takes more time to execute a random forest algorithm 
+than a decision tree. Finally, we can make predictions on the testing set and 
+save the results.
+
+```{r}
+final.prediction <- predict(model.forest, newdata = testing)
+final.prediction
+```
+
 
