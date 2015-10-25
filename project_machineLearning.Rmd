@@ -1,0 +1,143 @@
+---
+title: "Prediction of Well Performed Exercise using Data Science"
+author: "Tomas Mawyin"
+output: html_document
+---
+
+```{r, echo = FALSE, message=FALSE, include=FALSE}
+# Loading libraries
+library(ggplot2)
+library(caret)
+library(rattle)
+```
+
+## Executive Summary
+The objective of this project is to use machine learning algorithms to determine 
+how well an exercise is performed. The data was collected in a study where 
+participants were asked to perform weight lifting exercises in correct and 
+incorrect manners. Sensors were used to measure several arm, forearm, body, and 
+dumbbell positions and accelerations. These measurements are used in machine 
+learning algorithms to classify the exercise. In this report, decision trees and 
+random forest are used to perform the classification. Initially, a exploratory 
+analysis is presented followed by some preprocessing of the data. Finally, the 
+algorithms are presented with a discussion of their accuracy and measurements of 
+error.
+
+## Exploratory Data Analysis and Preprocessing
+To start the project it is necessary to download the data and read the files. 
+To avoid any issues when reading the data, we will take care of NA values as well 
+as missing fields.
+
+```{r}
+# URL for the training and testing sets
+train.url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test.url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+# Downloading the files
+download.file(train.url, destfile="pml-training.csv", method="libcurl")
+download.file(test.url, destfile="pml-testing.csv", method="libcurl")
+
+# Now we can read the files
+train.data <- read.csv("pml-training.csv", stringsAsFactors=FALSE, na.strings=c("","NA","#DIV/0"))
+test.data <- read.csv("pml-testing.csv", stringsAsFactors=FALSE, na.strings=c("","NA","#DIV/0"))
+```
+
+Part of the exploratory step is to clean the data as much as possible. Since the 
+fields with NA do not provide much information as predictors, the first step is 
+to recognize which columns contain NAs. Once the columns with missing values is 
+determine it is possible to remove these columns from the training and testing sets. 
+
+```{r}
+# We know a lot of columns that contain NAs. Let's separate the NA columns
+na.cols <- sapply(train.data, function(x) any(is.na(x)))
+
+# We know that the test and the training set have the same variables.
+train.data <- train.data[,!na.cols]
+test.data <- test.data[,!na.cols]
+```
+
+For the final cleaning step, we can remove those columns that do not act as 
+predictors; that is, the first seven columns in the data which represent the 
+name of the participant and time-stamp information.
+
+```{r}
+# We can also remove the first 7 columns, since they are not predictors
+train.data <- train.data[,-seq(1,7)]
+test.data <- test.data[,-seq(1,7)]
+testing <- test.data[,-length(test.data)]
+
+# Let's get the final dimensions of the training data set
+dim(train.data)
+str(train.data)
+```
+
+The training and testing sets are now clean, they contain the required predictors 
+that can be used in the machine learning algorithms. However, before applying the 
+algorithms we will perform some preprocessing steps.  
+
+The first thing to do when preprocessing any data is to investigate zero 
+variance predictors. The following code will count the number of zero variance 
+predictors in the training data set. 
+
+```{r}
+sum(nearZeroVar(train.data,saveMetrics = TRUE)[,3])
+```
+
+Since the data is well suited for the analysis, it would be appropriate to 
+visualize some of the data to get some insights on the algorithms that could 
+be used. Just to get an idea, this report shows two basic plots where two 
+predictors from the training set are shown. The colour of the plot represent the 
+labelled data in the training set.
+
+```{r}
+ggplot(data=train.data, aes(total_accel_forearm, total_accel_dumbbell)) +
+    geom_point(aes(color=classe)) +
+    labs(title = "Exploration of predictors") +
+    labs(x = "Total Accel. Forearm", y = "Total Accel. Dumbbell")
+
+ggplot(data=train.data, aes(roll_arm, yaw_dumbbell)) +
+    geom_point(aes(color=classe)) +
+    labs(title = "Exploration of predictors") +
+    labs(x = "Roll Forearm", y = "Yaw Dumbbell")
+```
+
+Based on the above plots, we know that we need to use an algorithm that would 
+handle non-linearity in the data. The following step is to present the 
+algorithms and their statistics.
+
+## Machine Learning Algorithms
+The first step in any machine learning algorithm is to split the data to obtain 
+a cross-validation data set. This set will allow us to test the predictions using 
+labelled data and make comparisons to check the accuracy of the algorithm. The 
+training set will be split using a 60/40 partition. We can also check if the 
+training set has balanced classes.
+
+```{r}
+set.seed(159753)
+data.split <- createDataPartition(train.data$classe, p=0.60, list=FALSE)
+training <- train.data[data.split,]
+cross.val <- train.data[-data.split,]
+
+# Let's see if there is an unbalance in the classes
+table(training$classe)
+```
+
+The training set seems to be within the ranges of a balanced set of classes. This 
+means that we have relatively the same number of data points in each class. 
+
+### Decision Trees
+A decision tree is useful in this case because we can split the data based on 
+some of the predictors to make decisions on each of the classes. The following 
+code will use the training set to train a decision tree and the final tree will 
+be plotted.
+
+```{r}
+# Let's train the model using a decision tree. We will use tuneLength=30 to
+# investigate more models
+model.tree <- train(classe ~ ., data = training, method = "rpart", 
+                    preProcess=c("center", "scale"), tuneLength = 30)
+model.tree$finalModel
+fancyRpartPlot(model.tree$finalModel)
+```
+
+
